@@ -31,7 +31,7 @@
             border-bottom: 1px solid #333;
         }
         .app-title { font-weight: 900; font-size: 20px; color: var(--gold); text-shadow: 0 0 10px rgba(255,215,0,0.5); }
-        .version-badge { font-size: 12px; color: var(--gold); border: 1px solid var(--gold); padding: 5px 12px; border-radius: 20px; }
+        .version-badge { font-size: 12px; color: var(--gold); border: 1px solid var(--gold); padding: 5px 12px; border-radius: 20px; cursor: pointer; }
 
         .slot-machine {
             flex: 1; display: flex; flex-direction: column; 
@@ -93,6 +93,7 @@
         .menu-prob { font-size: 13px; color: var(--secondary-text); margin-left: 8px; }
         .delete-icon { color: #FF453A; font-size: 20px; cursor: pointer; padding: 5px; }
 
+        /* 모달 공통 */
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); z-index: 100; justify-content: center; align-items: center;
@@ -100,14 +101,14 @@
         }
         .modal-content {
             background: linear-gradient(145deg, #2c2c2e, #1a1a1a);
-            padding: 50px 20px; border-radius: 30px;
+            padding: 40px 20px; border-radius: 30px;
             text-align: center; width: 85%; max-width: 320px;
             border: 3px solid var(--gold); box-shadow: var(--gold-shadow);
             animation: modalPop 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
         }
         @keyframes modalPop { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 
-        .modal-header { color: var(--secondary-text); font-size: 16px; font-weight: bold; letter-spacing: 2px; }
+        .modal-header { color: var(--secondary-text); font-size: 16px; font-weight: bold; letter-spacing: 2px; margin-bottom: 15px; }
         .modal-result { 
             font-size: 48px; font-weight: 900; margin: 25px 0; 
             color: var(--gold); text-shadow: var(--gold-shadow);
@@ -118,13 +119,16 @@
             background: var(--gold); color: black; border: none; 
             padding: 14px 50px; border-radius: 15px; font-weight: 900; font-size: 18px;
         }
+
+        /* 업데이트 내용 스타일 */
+        .update-body { text-align: left; color: #ccc; font-size: 14px; line-height: 1.8; margin-bottom: 20px; padding: 0 10px; }
     </style>
 </head>
 <body>
 
     <div class="header">
         <div class="app-title">LUCKY MENU</div>
-        <div class="version-badge">Ver 1.0</div>
+        <div class="version-badge" onclick="openUpdateModal()">Ver 1.0</div>
     </div>
 
     <div class="slot-machine">
@@ -154,36 +158,56 @@
         </div>
     </div>
 
+    <div id="updateModal" class="modal" onclick="closeUpdateModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">UPDATE NOTES</div>
+            <div class="update-body">
+                • Ver 1.0 정식 버전 출시<br>
+                • 프리미엄 블랙 & 네온 UI 적용<br>
+                • 실제 슬롯머신 사운드 이펙트 추가<br>
+                • 메뉴 자동 저장 및 확률 계산 시스템<br>
+                • 부드러운 물리 감속 애니메이션
+            </div>
+            <button class="modal-close" onclick="closeUpdateModal()">닫기</button>
+        </div>
+    </div>
+
     <script>
         const MENU_KEY = 'MY_RANDOM_MENU_LIST_V1';
         let menus = JSON.parse(localStorage.getItem(MENU_KEY)) || ["치킨", "삼겹살", "파스타", "김밥", "국밥", "초밥", "햄버거"];
         const ITEM_HEIGHT = 140;
         let isRunning = false;
 
-        // 🔊 오디오 시스템 (Web Audio API)
+        // 🔊 개선된 오디오 시스템
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playSound(type) {
-            const osc = audioCtx.createOscillator();
+            const now = audioCtx.currentTime;
             const gain = audioCtx.createGain();
-            osc.connect(gain);
             gain.connect(audioCtx.destination);
 
             if (type === 'tick') {
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                const osc = audioCtx.createOscillator();
+                osc.type = 'square'; // 더 기계적인 소리
+                osc.frequency.setValueAtTime(100, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.05);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                osc.connect(gain);
                 osc.start();
-                osc.stop(audioCtx.currentTime + 0.1);
+                osc.stop(now + 0.05);
             } else if (type === 'win') {
-                const now = audioCtx.currentTime;
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(523.25, now); // C5
-                osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.5); // C6
-                gain.gain.setValueAtTime(0.2, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-                osc.start();
-                osc.stop(now + 0.5);
+                // 화려한 3단 음 (팡파르)
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, i) => {
+                    const osc = audioCtx.createOscillator();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, now + (i * 0.1));
+                    gain.gain.setValueAtTime(0.1, now + (i * 0.1));
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + (i * 0.1) + 0.3);
+                    osc.connect(gain);
+                    osc.start(now + (i * 0.1));
+                    osc.stop(now + (i * 0.1) + 0.3);
+                });
             }
         }
 
@@ -278,6 +302,8 @@
         }
 
         function closeModal() { document.getElementById('resultModal').style.display = 'none'; }
+        function openUpdateModal() { document.getElementById('updateModal').style.display = 'flex'; }
+        function closeUpdateModal() { document.getElementById('updateModal').style.display = 'none'; }
 
         init();
     </script>
