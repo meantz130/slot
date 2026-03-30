@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>오늘 뭐 먹지? 레트로 슬롯</title>
+    <style>
+        :root {
+            --primary: #FF3B30; /* Neon Red */
+            --secondary: #FFD60A; /* Neon Yellow */
+            --bg: #1C1C1E; /* Dark Background */
+            --card: #2C2C2E;
+            --text: #FFFFFF;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            font-family: 'Courier New', Courier, monospace; /* Retro font */
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex; flex-direction: column; align-items: center;
+            height: 100vh; overflow: hidden;
+            -webkit-user-select: none; user-select: none;
+        }
+
+        /* 업데이트 버튼 (네온 효과) */
+        .update-badge {
+            position: absolute; top: 15px; right: 15px;
+            background: none; border: 2px solid var(--secondary); color: var(--secondary);
+            padding: 5px 10px; border-radius: 15px; font-size: 11px; cursor: pointer; z-index: 10;
+            box-shadow: 0 0 10px var(--secondary);
+        }
+
+        /* 🎰 슬롯머신 본체 */
+        .slot-machine-body {
+            margin-top: 60px;
+            width: 85%; max-width: 320px;
+            background: linear-gradient(145deg, #3a3a3a, #1a1a1a);
+            border: 10px solid #444; border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 15px 0 #222, 0 20px 30px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        .machine-title {
+            font-size: 20px; color: var(--secondary); font-weight: bold;
+            margin-bottom: 15px; text-shadow: 0 0 10px var(--secondary);
+        }
+
+        /* 슬롯 윈도우 (3D Reel 효과) */
+        .slot-container {
+            height: 100px; background: black;
+            border: 5px solid #222; border-radius: 10px;
+            overflow: hidden; position: relative;
+            box-shadow: inset 0 0 20px rgba(255,255,255,0.2);
+        }
+
+        .reels {
+            display: flex; flex-direction: column;
+            position: absolute; width: 100%; top: 0; left: 0;
+            transition: transform 0.1s linear; /* 기본 회전 속도 */
+        }
+
+        .reel-item {
+            height: 100px; line-height: 100px;
+            font-size: 28px; font-weight: bold; color: var(--primary);
+            text-shadow: 0 0 15px var(--primary);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        /* 🕹️ 컨트롤 버튼 */
+        .controls { margin-top: 25px; }
+        .spin-btn {
+            padding: 15px 50px; font-size: 20px; font-weight: bold;
+            border: 4px solid #fff; border-radius: 50px;
+            background: linear-gradient(to bottom, var(--primary), #800);
+            color: white; cursor: pointer;
+            box-shadow: 0 5px 0 #500, 0 10px 20px rgba(255,0,0,0.3);
+            text-shadow: 0 2px 2px rgba(0,0,0,0.5);
+            transition: all 0.1s;
+        }
+        .spin-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px 0 #500, 0 5px 10px rgba(255,0,0,0.3);
+        }
+        .spin-btn.stopping {
+            background: linear-gradient(to bottom, #555, #222);
+            border-color: #aaa; box-shadow: 0 5px 0 #111;
+            color: #aaa; text-shadow: none;
+        }
+
+        /* 📋 메뉴 관리 영역 */
+        .menu-manager {
+            margin-top: auto; width: 100%;
+            background: var(--card); border-radius: 30px 30px 0 0;
+            padding: 20px; box-sizing: border-box;
+            box-shadow: 0 -10px 20px rgba(0,0,0,0.3);
+            max-height: 40%; overflow-y: auto;
+        }
+
+        .add-form { display: flex; gap: 10px; margin-bottom: 15px; }
+        .add-form input {
+            flex-grow: 1; padding: 12px;
+            background: #1c1c1e; border: 1px solid #444; border-radius: 10px;
+            color: white; font-family: inherit;
+        }
+        .add-btn {
+            padding: 10px 20px; background: #444; color: white;
+            border: none; border-radius: 10px; font-weight: bold;
+        }
+
+        .menu-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 5px; border-bottom: 1px solid #3a3a3a;
+        }
+        .prob-badge { font-size: 12px; color: var(--secondary); margin-left: 8px; }
+        .delete-btn { color: #FF453A; background: none; border: none; font-size: 16px; }
+
+        /* 🎁 당첨 팝업 모달 */
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); justify-content: center; align-items: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background: var(--card); padding: 30px; border-radius: 20px;
+            width: 80%; max-width: 300px; text-align: center;
+            border: 3px solid var(--secondary);
+            box-shadow: 0 0 30px var(--secondary);
+            animation: popIn 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        }
+        @keyframes popIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+        
+        .win-title { font-size: 24px; color: var(--secondary); margin-bottom: 10px; }
+        .win-menu { font-size: 32px; color: white; font-weight: bold; margin: 20px 0; text-shadow: 0 0 15px #fff; }
+        .close-modal-btn {
+            margin-top: 20px; padding: 10px 30px; background: var(--secondary);
+            color: black; border: none; border-radius: 20px; font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="update-badge" onclick="alert('v1.2: 슬롯머신 감속 효과 및 당첨 팝업 추가!')">Ver 1.2</div>
+
+    <div class="slot-machine-body">
+        <div class="machine-title">LUCKY LUNCH</div>
+        <div class="slot-container">
+            <div id="reels" class="reels">
+                </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="spinBtn" class="spin-btn" onclick="toggleSpin()">SPIN!</button>
+    </div>
+
+    <div class="menu-manager">
+        <div class="add-form">
+            <input type="text" id="menuInput" placeholder="새 메뉴 입력..." maxlength="10">
+            <button class="add-btn" onclick="addMenu()">추가</button>
+        </div>
+        <div id="menuList"></div>
+    </div>
+
+    <div id="winModal" class="modal" onclick="closeModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="win-title">🎉 당첨! 🎉</div>
+            <div style="font-size: 14px; color: #aaa;">오늘의 메뉴는?</div>
+            <div id="winMenu" class="win-menu">김치찌개</div>
+            <button class="close-modal-btn" onclick="closeModal()">확인</button>
+        </div>
+    </div>
+
+    <script>
+        let menus = ["김치찌개", "돈까스", "제육볶음", "초밥", "햄버거", "샌드위치", "짜장면", "냉면"];
+        const ITEM_HEIGHT = 100; // reel-item의 높이
+        let isSpinning = false;
+        let isStopping = false;
+        let reelArr = []; // 애니메이션용 배열
+
+        const reelsEl = document.getElementById('reels');
+        const spinBtn = document.getElementById('spinBtn');
+
+        function initReels() {
+            reelsEl.innerHTML = '';
+            // 무한 롤링처럼 보이게 하기 위해 메뉴 배열을 여러 번 반복해서 채움
+            reelArr = [...menus, ...menus, ...menus, ...menus, ...menus]; 
+            reelArr.forEach(menu => {
+                const item = document.createElement('div');
+                item.className = 'reel-item';
+                item.innerText = menu;
+                reelsEl.appendChild(item);
+            });
+            // 초기 위치 설정 (중앙 쯤)
+            reelsEl.style.transition = 'none';
+            reelsEl.style.transform = `translateY(-${ITEM_HEIGHT * menus.length}px)`;
+        }
+
+        function updateListUI() {
+            const listEl = document.getElementById('menuList');
+            listEl.innerHTML = '';
+            const prob = menus.length > 0 ? (100 / menus.length).toFixed(1) : 0;
+
+            menus.forEach((menu, index) => {
+                const item = document.createElement('div');
+                item.className = 'menu-item';
+                item.innerHTML = `
+                    <div>
+                        <strong>${menu}</strong>
+                        <span class="prob-badge">${prob}%</span>
+                    </div>
+                    <button class="delete-btn" onclick="deleteMenu(${index})">×</button>
+                `;
+                listEl.appendChild(item);
+            });
+        }
+
+        function toggleSpin() {
+            if (menus.length < 2) return alert('메뉴를 최소 2개 이상 등록해주세요.');
+
+            if (isSpinning) {
+                if (isStopping) return; // 이미 멈추는 중이면 중복 클릭 방지
+                stopSpin();
+            } else {
+                startSpin();
+            }
+        }
+
+        function startSpin() {
+            isSpinning = true;
+            isStopping = false;
+            spinBtn.innerText = 'STOP';
+            spinBtn.classList.remove('stopping');
+
+            // 빠르게 무한 회전하는 것처럼 보이기 위한 애니메이션
+            reelsEl.style.transition = 'transform 0.1s linear';
+            
+            this.spinTimer = setInterval(() => {
+                // 랜덤하게 위아래로 움직여서 굴러가는 느낌 냄
+                const randomOffset = Math.floor(Math.random() * menus.length * 2);
+                reelsEl.style.transform = `translateY(-${randomOffset * ITEM_HEIGHT}px)`;
+            }, 100);
+        }
+
+        function stopSpin() {
+            isStopping = true;
+            spinBtn.innerText = 'stopping...';
+            spinBtn.classList.add('stopping');
+            clearInterval(this.spinTimer);
+
+            // 최종 당첨 메뉴 선정
+            const selectedIndex = Math.floor(Math.random() * menus.length);
+            const selectedMenu = menus[selectedIndex];
+
+            // 🛑 천천히 멈추는 효과 구현
+            // 1. 현재 위치에서 마지막 섹션의 당첨 메뉴 위치로 부드럽게 이동
+            const finalY = (menus.length * 3 + selectedIndex) * ITEM_HEIGHT; // 4번째 세트의 위치
+            
+            reelsEl.style.transition = 'transform 2.5s cubic-bezier(0.23, 1, 0.32, 1)'; // Ease-out 효과
+            reelsEl.style.transform = `translateY(-${finalY}px)`;
+
+            // 2. 애니메이션이 끝난 후 (2.5초 후) 팝업 띄움
+            setTimeout(() => {
+                isSpinning = false;
+                isStopping = false;
+                spinBtn.innerText = 'SPIN!';
+                spinBtn.classList.remove('stopping');
+                showWinModal(selectedMenu);
+                
+                // 위치 초기화 (착시 효과 유지)
+                setTimeout(() => {
+                    reelsEl.style.transition = 'none';
+                    reelsEl.style.transform = `translateY(-${selectedIndex * ITEM_HEIGHT}px)`;
+                }, 100);
+
+            }, 2500); 
+        }
+
+        function addMenu() {
+            const input = document.getElementById('menuInput');
+            if (input.value.trim()) {
+                menus.push(input.value.trim());
+                input.value = '';
+                updateListUI();
+                initReels();
+            }
+        }
+
+        function deleteMenu(index) {
+            if (menus.length <= 1) return alert('최소 한 개의 메뉴는 있어야 합니다.');
+            menus.splice(index, 1);
+            updateListUI();
+            initReels();
+        }
+
+        // 모달 제어
+        function showWinModal(menu) {
+            document.getElementById('winMenu').innerText = menu;
+            document.getElementById('winModal').style.display = 'flex';
+        }
+        function closeModal() {
+            document.getElementById('winModal').style.display = 'none';
+        }
+
+        // 초기 실행
+        updateListUI();
+        initReels();
+    </script>
+</body>
+</html>
